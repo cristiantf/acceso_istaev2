@@ -172,6 +172,24 @@
                                 {% for d in docentes %}<option value="{{ d.biometric_id }}">{{ d.nombre }}</option>{% endfor %}
                             </select>
                         </div>
+                        <div class="col-12 mt-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold">Jornada Mañana</label>
+                                    <div class="input-group">
+                                        <input type="time" name="hora_inicio_m" class="form-control" value="07:00">
+                                        <input type="time" name="hora_fin_m" class="form-control" value="13:00">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold">Jornada Tarde</label>
+                                    <div class="input-group">
+                                        <input type="time" name="hora_inicio_t" class="form-control" value="13:01">
+                                        <input type="time" name="hora_fin_t" class="form-control" value="22:00">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <button class="btn btn-primary w-100 mt-3 py-2 fw-bold rounded-pill shadow">DESCARGAR REPORTE MATRICIAL</button>
                 </form>

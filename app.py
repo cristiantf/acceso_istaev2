@@ -416,6 +416,7 @@ def descargar_reporte_permisos():
 def descargar_reporte_matricial():
     if current_user.rol != 'admin': return redirect(url_for('index'))
     
+    # --- Filtros de Fecha y Docente ---
     fecha_ini_str = request.args.get('fecha_inicio')
     fecha_fin_str = request.args.get('fecha_fin')
     docente_filtro = request.args.get('docente_id')
@@ -429,6 +430,17 @@ def descargar_reporte_matricial():
 
     dias_reporte = [ (start_dt + timedelta(days=x)).strftime('%Y-%m-%d') for x in range((end_dt-start_dt).days + 1) ]
 
+    # --- Filtros de Hora ---
+    try:
+        hora_inicio_m = datetime.strptime(request.args.get('hora_inicio_m', '07:00'), '%H:%M').time()
+        hora_fin_m = datetime.strptime(request.args.get('hora_fin_m', '13:00'), '%H:%M').time()
+        hora_inicio_t = datetime.strptime(request.args.get('hora_inicio_t', '13:01'), '%H:%M').time()
+        hora_fin_t = datetime.strptime(request.args.get('hora_fin_t', '22:00'), '%H:%M').time()
+    except ValueError:
+        flash('Formato de hora inválido. Use HH:MM.', 'danger')
+        return redirect(url_for('admin_dashboard') + '#collapseReportes')
+
+    # --- Consulta de Datos ---
     docentes = User.query.filter_by(biometric_id=docente_filtro).all() if docente_filtro and docente_filtro != 'todos' else User.query.filter_by(rol='docente').all()
 
     all_logs = Log.query.filter(
@@ -437,6 +449,7 @@ def descargar_reporte_matricial():
         Log.tipo_evento.like('%Asistencia%')
     ).all()
 
+    # --- Generación de Excel ---
     wb = Workbook()
     ws = wb.active
     ws.title = "Reporte Matricial"
@@ -467,16 +480,24 @@ def descargar_reporte_matricial():
         for col_idx, dia in enumerate(dias_reporte, 4):
             day_logs = [l for l in all_logs if l.usuario_id == doc.biometric_id and l.fecha.strftime('%Y-%m-%d') == dia]
             
-            m_logs = sorted([l for l in day_logs if l.fecha.hour < 13], key=lambda x: x.fecha)
-            t_logs = sorted([l for l in day_logs if l.fecha.hour >= 13], key=lambda x: x.fecha)
+            m_logs = sorted([l for l in day_logs if hora_inicio_m <= l.fecha.time() <= hora_fin_m], key=lambda x: x.fecha)
+            t_logs = sorted([l for l in day_logs if hora_inicio_t <= l.fecha.time() <= hora_fin_t], key=lambda x: x.fecha)
 
             def fmt(logs):
-                if not logs: return "--:--"
                 pre = "(H) " if logs[0].origen == "Huella" else "(W) "
-                if len(logs) > 1: return f"{pre}{logs[0].fecha.strftime('%H:%M')}-{logs[-1].fecha.strftime('%H:%M')}"
+                if len(logs) > 1:
+                    return f"{pre}{logs[0].fecha.strftime('%H:%M')}-{logs[-1].fecha.strftime('%H:%M')}"
                 return f"{pre}{logs[0].fecha.strftime('%H:%M')}"
 
-            cell = ws.cell(row=row_idx, column=col_idx, value=f"Mañana: {fmt(m_logs)}\nTarde: {fmt(t_logs)}")
+            cell_parts = []
+            if m_logs:
+                cell_parts.append(f"Mañana: {fmt(m_logs)}")
+            if t_logs:
+                cell_parts.append(f"Tarde: {fmt(t_logs)}")
+            
+            final_text = "\n".join(cell_parts) or "Sin registros"
+
+            cell = ws.cell(row=row_idx, column=col_idx, value=final_text)
             cell.border, cell.alignment = border_thin, align_center
 
         row_idx += 1
