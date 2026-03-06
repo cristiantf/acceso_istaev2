@@ -1,9 +1,10 @@
 import os
 import io
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta, time
 import pytz
 from openpyxl import Workbook
@@ -12,6 +13,7 @@ import config
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = config.SECRET_KEY
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # --- CONFIGURACIÓN DE BASE DE DATOS (MYSQL) ---
 app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
@@ -40,6 +42,10 @@ class Log(db.Model):
     usuario_id = db.Column(db.String(20))
     tipo_evento = db.Column(db.String(50))
     origen = db.Column(db.String(50))
+    latitud = db.Column(db.Float, nullable=True)
+    longitud = db.Column(db.Float, nullable=True)
+    descripcion = db.Column(db.Text, nullable=True)
+    foto_path = db.Column(db.String(255), nullable=True)
 
 class Comando(db.Model):
     __tablename__ = 'comandos'
@@ -63,6 +69,10 @@ def load_user(user_id):
 def init_db():
     with app.app_context():
         db.create_all()
+        # Crear carpeta de uploads si no existe
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+        
         if not User.query.filter_by(username='admin').first():
             hashed_pw = generate_password_hash('istae123A*', method='pbkdf2:sha256')
             admin = User(biometric_id='999', nombre='Admin Principal', username='admin', password=hashed_pw, rol='admin', acceso_puerta=1)
@@ -72,7 +82,6 @@ def init_db():
 init_db()
 
 # --- API PARA HARDWARE (IOT) ---
-
 @app.route('/api/sincronizar')
 def api_sincronizar():
     usuarios = User.query.filter_by(acceso_puerta=1).all()
@@ -118,7 +127,6 @@ def api_check_comando():
     return "NADA"
 
 # --- VISTAS Y DASHBOARDS ---
-
 @app.route('/')
 @login_required
 def index():
@@ -143,8 +151,13 @@ def docente_dashboard():
 def perfil():
     return render_template('perfil.html')
 
-# --- ACCIONES ---
+# --- RUTA PARA SERVIR EVIDENCIAS ---
+@app.route('/uploads/<filename>')
+@login_required
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+# --- ACCIONES ---
 @app.route('/admin/abrir')
 @login_required
 def admin_abrir():
@@ -194,21 +207,45 @@ def docente_abrir():
         flash('Puerta abierta.', 'success')
     return redirect(url_for('docente_dashboard'))
 
-@app.route('/docente/marcar_web')
+@app.route('/docente/marcar_web', methods=['GET', 'POST'])
 @login_required
 def docente_marcar():
-    db.session.add(Log(
-        fecha=datetime.now(pytz.timezone('America/Guayaquil')),
-        usuario_id=current_user.biometric_id,
-        tipo_evento="Asistencia",
-        origen="Asistencia remota"
-    ))
-    db.session.commit()
-    flash('Asistencia registrada.', 'success')
+    if request.method == 'POST':
+        lat = request.form.get('latitud')
+        lon = request.form.get('longitud')
+        descripcion = request.form.get('descripcion')
+        foto = request.files.get('foto')
+
+        # Validación básica de GPS
+        if not lat or not lon:
+            flash('No se pudo obtener la ubicación GPS. Intente de nuevo.', 'danger')
+            return redirect(url_for('docente_dashboard'))
+
+        filename = None
+        if foto and foto.filename != '':
+            filename = secure_filename(f"{current_user.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{foto.filename}")
+            foto.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+        nuevo_log = Log(
+            fecha=datetime.now(pytz.timezone('America/Guayaquil')),
+            usuario_id=current_user.biometric_id,
+            tipo_evento="Asistencia",
+            origen="Asistencia remota",
+            latitud=float(lat),
+            longitud=float(lon),
+            descripcion=descripcion,
+            foto_path=filename
+        )
+        db.session.add(nuevo_log)
+        db.session.commit()
+        flash('Asistencia remota registrada con éxito.', 'success')
+        return redirect(url_for('docente_dashboard'))
+
+    # Si es GET, simplemente renderiza la misma página (la lógica del modal se encarga)
     return redirect(url_for('docente_dashboard'))
 
-# --- GESTIÓN DOCENTES ---
 
+# --- GESTIÓN DOCENTES ---
 @app.route('/crear_docente', methods=['POST'])
 @login_required
 def crear_docente():
@@ -252,7 +289,6 @@ def editar_docente(id):
     return render_template('editar_docente.html', docente=u)
     
 # --- GESTIÓN DE PERMISOS ---
-
 @app.route('/admin/permiso/crear', methods=['POST'])
 @login_required
 def crear_permiso():
@@ -343,7 +379,6 @@ def eliminar_permiso(id):
     return redirect(url_for('admin_dashboard'))
 
 # --- REPORTES ---
-
 @app.route('/descargar_reporte_permisos')
 @login_required
 def descargar_reporte_permisos():
@@ -484,7 +519,12 @@ def descargar_reporte_matricial():
             t_logs = sorted([l for l in day_logs if hora_inicio_t <= l.fecha.time() <= hora_fin_t], key=lambda x: x.fecha)
 
             def fmt(logs):
-                pre = "(H) " if logs[0].origen == "Huella" else "(W) "
+                pre = ""
+                if logs[0].origen == "Huella":
+                    pre = "(H) "
+                elif logs[0].origen == "Asistencia remota":
+                    pre = "(W) "
+
                 if len(logs) > 1:
                     return f"{pre}{logs[0].fecha.strftime('%H:%M')}-{logs[-1].fecha.strftime('%H:%M')}"
                 return f"{pre}{logs[0].fecha.strftime('%H:%M')}"
@@ -511,14 +551,26 @@ def descargar_reporte_matricial():
     return send_file(output, download_name="Reporte_ISTAE.xlsx", as_attachment=True)
 
 # --- AJAX Y SEGURIDAD ---
-
 @app.route('/api/logs_admin')
 @login_required
 def get_logs_admin_json():
     if current_user.rol != 'admin': return jsonify({"error": "No autorizado"}), 403
     
-    logs_data = db.session.query(Log, User).outerjoin(User, Log.usuario_id == User.biometric_id).order_by(Log.id.desc()).limit(15).all()
-    res = [{"fecha": l.fecha.strftime('%Y-%m-%d %H:%M:%S'), "nombre": u.nombre if u else "ID: " + l.usuario_id, "tipo_evento": l.tipo_evento, "origen": l.origen} for l, u in logs_data]
+    logs_data = db.session.query(Log, User).outerjoin(User, Log.usuario_id == User.biometric_id).order_by(Log.id.desc()).limit(20).all()
+    
+    res = []
+    for log, user in logs_data:
+        log_dict = {
+            "fecha": log.fecha.strftime('%Y-%m-%d %H:%M:%S'),
+            "nombre": user.nombre if user else f"ID: {log.usuario_id}",
+            "tipo_evento": log.tipo_evento,
+            "origen": log.origen,
+            "lat": log.latitud,
+            "lon": log.longitud,
+            "foto": log.foto_path,
+            "desc": log.descripcion
+        }
+        res.append(log_dict)
     
     queue_len = Comando.query.filter_by(estado='PENDIENTE').count()
     

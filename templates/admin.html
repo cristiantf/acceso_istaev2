@@ -294,6 +294,7 @@
                                 <th>Docente</th>
                                 <th>Evento</th>
                                 <th class="text-center">Vía</th>
+                                <th>Evidencia</th>
                             </tr>
                         </thead>
                         <tbody id="live-logs-body"></tbody>
@@ -359,7 +360,7 @@
         
         try {
             ind.style.opacity = '1';
-            const res = await fetch('/api/logs_admin'); // Usar endpoint de admin para más datos
+            const res = await fetch('/api/logs_admin');
             const data = await res.json();
             
             const hoy = new Date().toISOString().split('T')[0];
@@ -374,11 +375,26 @@
                 if(l.tipo_evento.toLowerCase().includes("puerta")) badge = "bg-success";
                 if(l.tipo_evento.toLowerCase().includes("remota")) badge = "bg-danger";
 
+                let evidenciaHtml = '-';
+                if (l.origen === 'Asistencia remota') {
+                    evidenciaHtml = '';
+                    if (l.lat && l.lon) {
+                        evidenciaHtml += `<a href="https://www.google.com/maps?q=${l.lat},${l.lon}" target="_blank" class="btn btn-sm btn-outline-primary border-0" title="Ver Ubicación"><i class="bi bi-geo-alt-fill"></i></a>`;
+                    }
+                    if (l.foto) {
+                        evidenciaHtml += `<a href="/uploads/${l.foto}" target="_blank" class="btn btn-sm btn-outline-secondary border-0" title="Ver Foto"><i class="bi bi-camera-fill"></i></a>`;
+                    }
+                    if (l.desc) {
+                         evidenciaHtml += `<button class="btn btn-sm btn-outline-info border-0" title="Descripción: ${l.desc}"><i class="bi bi-info-circle-fill"></i></button>`;
+                    }
+                }
+
                 return `<tr>
                     <td class="ps-4 mono small"><b>${h}</b><br><span class="text-muted extra-small">${f}</span></td>
                     <td class="small fw-bold text-dark">${l.nombre}</td>
                     <td><span class="badge ${badge} bg-opacity-10 text-dark border-0 px-3 extra-small fw-bold shadow-sm">${l.tipo_evento}</span></td>
                     <td class="text-center"><i class="bi ${icon} fs-5" title="${l.origen}"></i></td>
+                    <td class="text-center">${evidenciaHtml}</td>
                 </tr>`;
             }).join('');
         } catch (e) {
