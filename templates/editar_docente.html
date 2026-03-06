@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block body_class %}no-sidebar{% endblock %}
+
+{% block content %}
+<div class="container mt-2">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-7">
+            <!-- Navegación de migas de pan (Breadcrumbs) para mejor UX -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Editar Docente</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow border-0">
+                <div class="card-header bg-warning text-dark fw-bold py-3">
+                    <i class="bi bi-pencil-square me-2"></i>Actualizar Datos del Docente
+                </div>
+                <div class="card-body p-4">
+                    <form action="{{ url_for('actualizar_docente') }}" method="POST">
+                        <!-- ID oculto necesario para la actualización en la DB -->
+                        <input type="hidden" name="user_id" value="{{ docente.id }}">
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Nombre Completo</label>
+                                <input type="text" name="nombre" class="form-control shadow-none" value="{{ docente.nombre }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">ID Biométrico (Hardware)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="bi bi-cpu"></i></span>
+                                    <input type="number" name="bio_id" class="form-control shadow-none" value="{{ docente.biometric_id }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Usuario de Acceso</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">@</span>
+                                    <input type="text" name="username" class="form-control shadow-none" value="{{ docente.username }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Nueva Contraseña</label>
+                                <input type="password" name="password" class="form-control shadow-none" placeholder="Dejar en blanco para mantener">
+                            </div>
+                            
+                            <div class="col-12 mt-4">
+                                <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
+                                    <div>
+                                        <label class="fw-bold mb-0" for="permisoEdit">
+                                            <i class="bi bi-key-fill text-warning me-2"></i>Permiso de Puerta Físico
+                                        </label>
+                                        <div class="small text-muted">Habilita al NodeMCU para reconocer este ID y activar el relé.</div>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="acceso_puerta" id="permisoEdit" 
+                                               style="transform: scale(1.4); cursor: pointer;" 
+                                               {% if docente.acceso_puerta == 1 %}checked{% endif %}>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-warning fw-bold shadow-sm py-2">
+                                <i class="bi bi-check-circle me-2"></i>Guardar Cambios
+                            </button>
+                            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary py-2">
+                                Cancelar y Volver
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Opción de eliminación rápida desde la edición -->
+            <div class="text-center mt-4">
+                <hr class="my-4">
+                <p class="small text-muted mb-2">Zona de peligro</p>
+                <a href="{{ url_for('eliminar_docente', id=docente.id) }}" 
+                   class="btn btn-sm btn-outline-danger px-4" 
+                   onclick="return confirm('¿Está seguro de eliminar este docente? Esta acción no se puede deshacer.')">
+                   <i class="bi bi-trash3 me-1"></i> Eliminar Docente Permanentemente
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+/* --- SISTEMA DE DISEÑO ISTAE --- */
+:root {
+    --sidebar-width: 270px;
+    --navbar-height: 70px;
+    --primary-color: #0d6efd;
+    --secondary-color: #1e293b;
+    --bg-light: #f1f5f9;
+    --text-main: #334155;
+    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    padding-top: var(--navbar-height);
+    transition: var(--transition);
+    overflow-x: hidden;
+}
+
+/* --- BARRA LATERAL (SIDEBAR) --- */
+.sidebar {
+    width: var(--sidebar-width);
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    background: var(--secondary-color);
+    z-index: 1050;
+    transition: var(--transition);
+}
+
+.sidebar .nav-link {
+    color: #94a3b8 !important;
+    margin: 5px 15px;
+    padding: 12px 15px;
+    border-radius: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    transition: var(--transition);
+}
+
+.sidebar .nav-link:hover, .sidebar .nav-link.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff !important;
+}
+
+.sidebar .nav-link.active {
+    background: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+.section-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: #475569;
+    padding: 25px 30px 10px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+}
+
+/* --- NAVBAR SUPERIOR --- */
+.navbar-top {
+    height: var(--navbar-height);
+    left: var(--sidebar-width);
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid #e2e8f0;
+    z-index: 1040;
+    transition: var(--transition);
+}
+
+/* --- CONTENIDO --- */
+.main-content {
+    margin-left: var(--sidebar-width);
+    padding: 30px;
+    transition: var(--transition);
+}
+
+/* --- ESTADOS CONTRAÍDOS (Escritorio) --- */
+body.sidebar-collapsed .sidebar { left: calc(-1 * var(--sidebar-width)); }
+body.sidebar-collapsed .navbar-top { left: 0 !important; }
+body.sidebar-collapsed .main-content { margin-left: 0; }
+
+/* --- RESPONSIVIDAD MÓVIL --- */
+@media (max-width: 991.98px) {
+    .sidebar { left: calc(-1 * var(--sidebar-width)); }
+    .sidebar.active { left: 0; }
+    .navbar-top { left: 0 !important; }
+    .main-content { margin-left: 0; padding: 20px; }
+}
+
+/* --- COMPONENTES --- */
+.card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    transition: var(--transition);
+}
+
+.btn { border-radius: 10px; padding: 10px 20px; font-weight: 600; }
+.form-control { border-radius: 10px; padding: 10px 15px; border: 1px solid #e2e8f0; }
+.form-control:focus { box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1); }
+
+.mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem; }
+.badge-soft { border: none; font-weight: 600; padding: 6px 12px; border-radius: 8px; }
+
+/* --- ANIMACIONES --- */
+.fade-in { animation: fadeIn 0.4s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

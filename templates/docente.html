@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block sidebar %}
+<div class="py-3 h-100 d-flex flex-column">
+    <div class="text-center mb-4 pt-3">
+        <div class="bg-primary d-inline-block p-2 rounded-4 mb-2 shadow">
+            <i class="bi bi-person-badge-fill fs-2 text-white"></i>
+        </div>
+        <h6 class="text-white fw-bold mt-1 small">PORTAL DOCENTE</h6>
+    </div>
+    
+    <div class="nav flex-column flex-grow-1">
+        <div class="section-label">Personal</div>
+        <a href="{{ url_for('docente_dashboard') }}" class="nav-link active">
+            <i class="bi bi-house-door-fill me-3"></i> Mi Dashboard
+        </a>
+        <a href="{{ url_for('perfil') }}" class="nav-link">
+            <i class="bi bi-shield-lock-fill me-3"></i> Mi Seguridad
+        </a>
+    </div>
+
+    <!-- Opción de Salida en el Sidebar (Ideal para móviles) -->
+    <div class="mt-auto p-3">
+        <hr class="text-white-50">
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger w-100 rounded-pill py-2 small fw-bold">
+            <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado con Reloj y Bienvenida -->
+    <div class="row align-items-center mb-4 fade-in">
+        <div class="col-md-7">
+            <h2 class="fw-bold text-dark mb-1">Bienvenido, {{ current_user.nombre.split(' ')[0] }}</h2>
+            <p class="text-muted mb-0 small">Estado del Sistema: <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">Conectado</span></p>
+        </div>
+        <div class="col-md-5 text-end d-none d-md-block">
+            <div class="bg-white p-2 px-3 rounded-4 shadow-sm border d-inline-flex align-items-center">
+                <div class="text-end me-3">
+                    <div class="small fw-bold text-primary text-uppercase" style="font-size: 0.6rem;">Hora Oficial</div>
+                    <h4 class="mb-0 fw-bold mono text-dark" id="reloj-docente">00:00:00</h4>
+                </div>
+                <i class="bi bi-clock-fill text-primary fs-3"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE RESUMEN ESTADÍSTICO -->
+    <div class="row g-3 mb-4 fade-in" style="animation-delay: 0.1s;">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm p-3 text-center h-100">
+                <div class="small text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.65rem;">Este Mes</div>
+                <h3 class="fw-bold mb-0 text-primary">{{ logs|length }}</h3>
+                <div class="extra-small text-muted">Marcaciones</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm p-3 text-center h-100">
+                <div class="small text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.65rem;">Hoy</div>
+                {% set hoy_str = current_time_display if current_time_display else "" %}
+                {% set count = namespace(value=0) %}
+                {% for l in logs %}
+                    {% set f_log = l.fecha.strftime('%Y-%m-%d') if l.fecha is not string else l.fecha %}
+                    {% if hoy_str in f_log %}
+                        {% set count.value = count.value + 1 %}
+                    {% endif %}
+                {% endfor %}
+                <h3 class="fw-bold mb-0 text-success">{{ count.value }}</h3>
+                <div class="extra-small text-muted">Registros</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm p-3 text-center h-100">
+                <div class="small text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.65rem;">Acceso</div>
+                <h3 class="fw-bold mb-0 text-dark">{% if current_user.acceso_puerta == 1 %}SÍ{% else %}NO{% endif %}</h3>
+                <div class="extra-small text-muted">Puerta Física</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm p-3 text-center h-100">
+                <div class="small text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.65rem;">Método</div>
+                <h3 class="fw-bold mb-0 text-info"><i class="bi bi-fingerprint"></i></h3>
+                <div class="extra-small text-muted">Biometría</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones Principales -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            {% if current_user.acceso_puerta == 1 %}
+            <div class="card h-100 border-0 shadow-lg text-center p-4 action-card border-bottom border-danger border-5" onclick="confirmarApertura()">
+                <div class="card-body py-4">
+                    <div class="bg-danger bg-opacity-10 d-inline-block p-4 rounded-circle mb-4">
+                        <i class="bi bi-unlock-fill text-danger" style="font-size: 3.5rem;"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">Apertura Remota</h3>
+                    <p class="text-muted px-lg-5 mb-4 small">Pulse para liberar la cerradura eléctrica inmediatamente.</p>
+                    <div id="btn-container-apertura">
+                        <button class="btn btn-danger w-100 rounded-pill py-3 fw-bold shadow-sm">
+                            <i class="bi bi-door-open me-2"></i>ABRIR PUERTA
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card h-100 border-0 shadow-sm text-center p-4 bg-light" style="opacity: 0.8; filter: grayscale(1);">
+                <div class="card-body py-4">
+                    <div class="bg-secondary bg-opacity-10 d-inline-block p-4 rounded-circle mb-4">
+                        <i class="bi bi-lock-fill text-secondary" style="font-size: 3.5rem;"></i>
+                    </div>
+                    <h4 class="fw-bold text-secondary">Acceso Restringido</h4>
+                    <p class="small text-muted mb-0 px-lg-4">No posee permisos de apertura física.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-6">
+            <a href="{{ url_for('docente_marcar') }}" class="text-decoration-none" onclick="mostrarCargaMarcacion(this)">
+                <div class="card h-100 border-0 shadow-lg text-center p-4 action-card border-bottom border-primary border-5">
+                    <div class="card-body py-4">
+                        <div class="bg-primary bg-opacity-10 d-inline-block p-4 rounded-circle mb-4">
+                            <i class="bi bi-fingerprint text-primary" style="font-size: 3.5rem;"></i>
+                        </div>
+                        <h3 class="fw-bold text-dark">Registrar Asistencia</h3>
+                        <p class="text-muted px-lg-5 mb-4 small">Marque su ingreso o salida manualmente vía web.</p>
+                        <div id="btn-container-marcar">
+                            <button class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm">
+                                <i class="bi bi-check2-circle me-2"></i>REGISTRAR AHORA
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- SECCIÓN: HISTORIAL -->
+    <div class="card mt-5 border-0 shadow-sm overflow-hidden mb-5 fade-in">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>Movimientos Recientes</h6>
+            <span class="badge bg-light text-dark border-0 px-3 fw-normal small">Sincronizado</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4">Fecha y Hora</th>
+                        <th>Evento</th>
+                        <th>Origen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-4">
+                            {% if log.fecha is string %}
+                                <div class="mono fw-bold text-primary">{{ log.fecha.split(' ')[1] if ' ' in log.fecha else log.fecha }}</div>
+                                <div class="extra-small text-muted">{{ log.fecha.split(' ')[0] if ' ' in log.fecha else '' }}</div>
+                            {% else %}
+                                <div class="mono fw-bold text-primary">{{ log.fecha.strftime('%H:%M:%S') }}</div>
+                                <div class="extra-small text-muted">{{ log.fecha.strftime('%Y-%m-%d') }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set ev = log.tipo_evento|lower %}
+                            {% if "puerta" in ev %}
+                                <span class="badge rounded-pill bg-success bg-opacity-10 text-success px-3 fw-bold">Asistencia + Puerta</span>
+                            {% elif "remota" in ev %}
+                                <span class="badge rounded-pill bg-danger bg-opacity-10 text-danger px-3 fw-bold">Apertura Remota</span>
+                            {% else %}
+                                <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary px-3 fw-bold">{{ log.tipo_evento }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.origen == "Huella" %}
+                                <span class="text-info small fw-bold"><i class="bi bi-cpu-fill me-1"></i>Huella</span>
+                            {% else %}
+                                <span class="text-primary small fw-bold"><i class="bi bi-laptop me-1"></i>Web</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="text-center py-5 text-muted small">No hay registros aún.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="modalConfirmDocente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-body text-center p-4">
+                <i class="bi bi-shield-lock-fill text-danger fs-1 mb-3"></i>
+                <h5 class="fw-bold">¿Abrir Cerradura?</h5>
+                <p class="text-muted small">Esta acción será registrada bajo su usuario.</p>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('docente_abrir') }}" class="btn btn-danger rounded-pill fw-bold" onclick="this.classList.add('disabled')">SÍ, ABRIR</a>
+                    <button type="button" class="btn btn-light rounded-pill border" data-bs-dismiss="modal">CANCELAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function iniciarRelojDigital() {
+        const display = document.getElementById('reloj-docente');
+        function actualizar() {
+            const ahora = new Date();
+            if (display) display.innerText = ahora.toLocaleTimeString('es-EC', { hour12: false });
+        }
+        setInterval(actualizar, 1000);
+        actualizar();
+    }
+
+    function confirmarApertura() {
+        const modal = new bootstrap.Modal(document.getElementById('modalConfirmDocente'));
+        modal.show();
+    }
+
+    function mostrarCargaMarcacion(enlace) {
+        enlace.style.pointerEvents = 'none';
+        const container = document.getElementById('btn-container-marcar');
+        if (container) {
+            container.innerHTML = `<button class="btn btn-primary w-100 rounded-pill py-3 disabled shadow-none"><span class="spinner-border spinner-border-sm me-2"></span>MARCANDO...</button>`;
+        }
+    }
+
+    window.addEventListener('load', iniciarRelojDigital);
+</script>
+
+<style>
+    .action-card { cursor: pointer; transition: all 0.3s ease; border-radius: 28px; background: white; }
+    .action-card:hover { transform: translateY(-10px); box-shadow: 0 25px 50px rgba(0,0,0,0.1) !important; }
+    .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; letter-spacing: 0.5px; }
+    .extra-small { font-size: 0.7rem; }
+    .fade-in { animation: fadeIn 0.5s ease forwards; opacity: 0; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+{% endblock %}

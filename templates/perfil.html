@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block body_class %}no-sidebar{% endblock %}
+
+{% block content %}
+<div class="container mt-2">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <!-- Navegación de migas de pan -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Inicio</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Seguridad</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow border-0">
+                <div class="card-header bg-primary text-white py-3 fw-bold">
+                    <i class="bi bi-person-lock me-2"></i>Seguridad de la Cuenta
+                </div>
+                <div class="card-body p-4 p-md-5">
+                    <!-- Cabecera de Perfil -->
+                    <div class="text-center mb-4">
+                        <div class="p-3 bg-light rounded-circle d-inline-block shadow-sm mb-2">
+                            <i class="bi bi-shield-lock text-primary" style="font-size: 3rem"></i>
+                        </div>
+                        <h5 class="fw-bold mt-2 mb-0 text-dark">{{ current_user.nombre }}</h5>
+                        <p class="text-muted small">ID Usuario: <code class="fw-bold">@{{ current_user.username }}</code></p>
+                    </div>
+
+                    <hr class="text-muted mb-4">
+
+                    <form action="{{ url_for('actualizar_password') }}" method="POST" id="passwordForm">
+                        <!-- Contraseña Actual -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Contraseña Actual</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-key text-muted"></i></span>
+                                <input type="password" name="current_password" class="form-control border-start-0 shadow-none" placeholder="Ingrese su clave actual" required>
+                            </div>
+                        </div>
+
+                        <!-- Nueva Contraseña -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Nueva Contraseña</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-shield-plus text-muted"></i></span>
+                                <input type="password" name="new_password" id="new_password" class="form-control border-start-0 shadow-none" placeholder="Mínimo 6 caracteres" required minlength="6">
+                            </div>
+                        </div>
+
+                        <!-- Confirmar Nueva Contraseña -->
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted">Confirmar Nueva Contraseña</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-shield-check text-muted"></i></span>
+                                <input type="password" id="confirm_password" class="form-control border-start-0 shadow-none" placeholder="Repita la nueva clave" required>
+                            </div>
+                            <div id="passwordError" class="text-danger small mt-2 d-none">
+                                <i class="bi bi-exclamation-circle me-1"></i>Las contraseñas no coinciden.
+                            </div>
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary fw-bold py-2 shadow-sm" id="btnSubmit">
+                                <i class="bi bi-check-circle me-2"></i>Actualizar Credenciales
+                            </button>
+                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary py-2">
+                                Cancelar y Volver
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Nota de seguridad -->
+            <div class="alert alert-light border-0 text-center mt-4 p-3 shadow-sm">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i> Por seguridad, le recomendamos cambiar su contraseña periódicamente y no compartirla con nadie.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /**
+     * Validación de coincidencia de contraseñas en el cliente
+     */
+    const form = document.getElementById('passwordForm');
+    const newPass = document.getElementById('new_password');
+    const confirmPass = document.getElementById('confirm_password');
+    const errorMsg = document.getElementById('passwordError');
+    const btnSubmit = document.getElementById('btnSubmit');
+
+    function validatePasswords() {
+        if (confirmPass.value === "") {
+            errorMsg.classList.add('d-none');
+            btnSubmit.disabled = false;
+            return;
+        }
+
+        if (newPass.value !== confirmPass.value) {
+            errorMsg.classList.remove('d-none');
+            confirmPass.classList.add('is-invalid');
+            btnSubmit.disabled = true;
+        } else {
+            errorMsg.classList.add('d-none');
+            confirmPass.classList.remove('is-invalid');
+            confirmPass.classList.add('is-valid');
+            btnSubmit.disabled = false;
+        }
+    }
+
+    newPass.addEventListener('input', validatePasswords);
+    confirmPass.addEventListener('input', validatePasswords);
+
+    form.addEventListener('submit', function(e) {
+        if (newPass.value !== confirmPass.value) {
+            e.preventDefault();
+            errorMsg.classList.remove('d-none');
+        }
+    });
+</script>
+{% endblock %}

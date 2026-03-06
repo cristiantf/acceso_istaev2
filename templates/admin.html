@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+
+{% block sidebar %}
+<div class="py-3 h-100 d-flex flex-column">
+    <!-- Encabezado de la Barra Lateral -->
+    <div class="text-center mb-4 pt-3">
+        <div class="bg-primary d-inline-block p-2 rounded-4 mb-2 shadow">
+            <i class="bi bi-shield-lock-fill fs-2 text-white"></i>
+        </div>
+        <h6 class="text-white fw-bold mt-1 small">SISTEMA ISTAE</h6>
+    </div>
+    
+    <!-- Menú de Navegación -->
+    <div class="nav flex-column flex-grow-1">
+        <div class="section-label">General</div>
+        <a href="{{ url_for('admin_dashboard') }}" class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+            <i class="bi bi-grid-fill me-3"></i> Dashboard
+        </a>
+        
+        <div class="section-label">Gestión Docente</div>
+        <a href="#collapseNuevo" class="nav-link" data-bs-toggle="collapse" role="button">
+            <i class="bi bi-person-plus-fill me-3"></i> Nuevo Registro
+        </a>
+        <a href="#collapsePermiso" class="nav-link" data-bs-toggle="collapse" role="button">
+            <i class="bi bi-calendar-check-fill me-3"></i> Registrar Permiso
+        </a>
+        <a href="#collapseReportes" class="nav-link" data-bs-toggle="collapse" role="button">
+            <i class="bi bi-file-earmark-spreadsheet-fill me-3"></i> Reportes Excel
+        </a>
+        
+        <div class="section-label">Control de Acceso</div>
+        <a href="#collapseSync" class="nav-link" data-bs-toggle="collapse" role="button">
+            <i class="bi bi-clock-history me-3"></i> Sincronizar Hora
+        </a>
+        <a href="#" class="nav-link text-warning" data-bs-toggle="modal" data-bs-target="#modalApertura">
+            <i class="bi bi-unlock-fill me-3"></i> Apertura Forzada
+        </a>
+    </div>
+
+    <!-- Botón de Salida Permanente -->
+    <div class="mt-auto p-3">
+        <hr class="text-white-50">
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger w-100 rounded-pill py-2 small fw-bold">
+            <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- MODAL DE SEGURIDAD -->
+<div class="modal fade" id="modalApertura" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white border-0 py-3">
+                <h5 class="modal-title fw-bold"><i class="bi bi-shield-lock me-2"></i>Seguridad del Sistema</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-5">
+                <div class="bg-danger bg-opacity-10 d-inline-block p-4 rounded-circle mb-4">
+                    <i class="bi bi-exclamation-triangle-fill text-danger fs-1"></i>
+                </div>
+                <h4 class="fw-bold">¿Abrir puerta físicamente?</h4>
+                <p class="text-muted">Esta acción activará el relé en el NodeMCU. Quedará un registro de auditoría bajo su nombre de administrador.</p>
+            </div>
+            <div class="modal-footer border-0 bg-light p-3">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <a href="{{ url_for('admin_abrir') }}" class="btn btn-danger rounded-pill px-5 fw-bold shadow">CONFIRMAR ACCIÓN</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- KPIs -->
+    <div class="row g-3 mb-4 fade-in">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm p-3 text-center h-100 border-start border-primary border-4">
+                <div class="small text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.6rem;">Total Docentes</div>
+                <h3 class="fw-bold mb-0 text-dark">{{ docentes|length }}</h3>
+                <div class="extra-small text-primary fw-bold">Registrados</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm p-3 text-center h-100 border-start border-success border-4">
+                <div class="small text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.6rem;">Estado Hardware</div>
+                <h3 class="fw-bold mb-0 text-success"><i class="bi bi-wifi"></i></h3>
+                <div class="extra-small text-muted">En línea</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm p-3 text-center h-100 border-start border-info border-4">
+                <div class="small text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.6rem;">Hoy</div>
+                <h3 class="fw-bold mb-0 text-info" id="count-hoy">--</h3>
+                <div class="extra-small text-muted">Marcaciones</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm p-3 text-center h-100 border-start border-warning border-4">
+                <div class="small text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.6rem;">Cola</div>
+                <h3 class="fw-bold mb-0 text-dark" id="command-queue-count">0</h3>
+                <div class="extra-small text-muted">Comandos</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIONES COLAPSABLES -->
+    <div class="collapse mb-4" id="collapseNuevo">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-success text-white fw-bold py-3">➕ Registrar Nuevo Docente</div>
+            <div class="card-body p-4 bg-white">
+                <form action="{{ url_for('crear_docente') }}" method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label small fw-bold">Nombre Completo</label><input type="text" name="nombre" class="form-control" required placeholder="Ej. Ing. Cristian"></div>
+                        <div class="col-md-6"><label class="form-label small fw-bold">ID Biométrico</label><input type="number" name="bio_id" class="form-control" required placeholder="101"></div>
+                        <div class="col-md-6"><label class="form-label small fw-bold">Usuario</label><input type="text" name="username" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label small fw-bold">Contraseña</label><input type="password" name="password" class="form-control" required></div>
+                        <div class="col-12 mt-3">
+                            <div class="form-check form-switch p-3 border rounded-4 bg-light d-flex justify-content-between align-items-center">
+                                <label class="form-check-label fw-bold mb-0" for="sw_p">Habilitar apertura física por huella</label>
+                                <input class="form-check-input ms-0" type="checkbox" name="acceso_puerta" id="sw_p" style="transform: scale(1.3);">
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-success w-100 mt-4 py-2 fw-bold rounded-pill shadow">GUARDAR DOCENTE</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="collapse mb-4" id="collapsePermiso">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white fw-bold py-3"><i class="bi bi-calendar-plus me-2"></i> Registrar Permiso de Docente</div>
+            <div class="card-body p-4 bg-white">
+                <form action="{{ url_for('crear_permiso') }}" method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Docente</label>
+                            <select name="docente_id" class="form-select" required>
+                                <option value="" disabled selected>Seleccione un docente</option>
+                                {% for d in docentes %}<option value="{{ d.id }}">{{ d.nombre }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Fecha del Permiso</label>
+                            <input type="date" name="fecha_permiso" class="form-control" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Observación (Opcional)</label>
+                            <textarea name="observacion" class="form-control" rows="2" placeholder="Ej. Cita médica, comisión, etc."></textarea>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100 mt-4 py-2 fw-bold rounded-pill shadow">GUARDAR PERMISO</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="collapse mb-4" id="collapseReportes">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white fw-bold py-3">📊 Generar Reportes (Excel)</div>
+            <div class="card-body p-4 bg-white">
+                <!-- Reporte de Asistencia -->
+                <h6 class="text-primary fw-bold">Reporte de Asistencia</h6>
+                <hr>
+                <form action="{{ url_for('descargar_reporte_matricial') }}" method="GET">
+                    <div class="row g-3">
+                        <div class="col-md-4"><label class="form-label small fw-bold">Fecha Inicio</label><input type="date" name="fecha_inicio" class="form-control"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Fecha Fin</label><input type="date" name="fecha_fin" class="form-control"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Docente</label>
+                            <select name="docente_id" class="form-select">
+                                <option value="todos">Todos</option>
+                                {% for d in docentes %}<option value="{{ d.biometric_id }}">{{ d.nombre }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100 mt-3 py-2 fw-bold rounded-pill shadow">DESCARGAR REPORTE MATRICIAL</button>
+                </form>
+
+                <!-- Reporte de Permisos -->
+                <h6 class="text-primary fw-bold mt-5">Reporte de Permisos</h6>
+                <hr>
+                <form action="{{ url_for('descargar_reporte_permisos') }}" method="GET">
+                    <div class="row g-3">
+                        <div class="col-md-4"><label class="form-label small fw-bold">Fecha Inicio</label><input type="date" name="fecha_inicio_permiso" class="form-control"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Fecha Fin</label><input type="date" name="fecha_fin_permiso" class="form-control"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Docente</label>
+                            <select name="docente_id_permiso" class="form-select">
+                                <option value="todos">Todos</option>
+                                {% for d in docentes %}<option value="{{ d.id }}">{{ d.nombre }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary w-100 mt-3 py-2 fw-bold rounded-pill shadow">DESCARGAR REPORTE DE PERMISOS</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN SINCRONIZAR HORA -->
+    <div class="collapse mb-4" id="collapseSync">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-info text-white fw-bold py-3"><i class="bi bi-clock-fill me-2"></i> Sincronizar Hora del Biométrico</div>
+            <div class="card-body p-4 bg-white">
+                <form action="{{ url_for('admin_sincronizar_hora') }}" method="POST">
+                    <p class="small text-muted">Use esta herramienta para forzar la fecha y hora del dispositivo biométrico. Se recomienda usar la hora actual del servidor para mantener la consistencia.</p>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold">Fecha y Hora a Establecer</label>
+                            <input type="datetime-local" id="datetime-sync" name="new_time" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-outline-secondary w-100" onclick="setCurrentTime()">Usar Hora Actual</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-info w-100 mt-4 py-2 fw-bold rounded-pill shadow text-white">ENVIAR COMANDO DE SINCRONIZACIÓN</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA DE PERMISOS -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold"><i class="bi bi-calendar-check-fill text-primary me-2"></i>Permisos Registrados</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr class="small text-muted text-uppercase">
+                        <th class="ps-4">Docente</th>
+                        <th>Fecha Permiso</th>
+                        <th>Observación</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in permisos %}
+                    <tr>
+                        <td class="ps-4 fw-bold">{{ p.docente.nombre }}</td>
+                        <td>{{ p.fecha_permiso.strftime('%d de %B, %Y') }}</td>
+                        <td class="small text-muted">{{ p.observacion or 'Sin observación' }}</td>
+                        <td class="text-end pe-3">
+                            <a href="{{ url_for('editar_permiso', id=p.id) }}" class="btn btn-sm btn-outline-primary border-0" title="Editar"><i class="bi bi-pencil-fill"></i></a>
+                            <a href="{{ url_for('eliminar_permiso', id=p.id) }}" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('¿Está seguro de eliminar este permiso?')" title="Eliminar"><i class="bi bi-trash-fill"></i></a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="bi bi-calendar-x fs-2 d-block mb-2"></i>
+                            No hay permisos registrados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="row g-4">
+        <!-- MONITOR EN VIVO -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100 overflow-hidden">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold"><i class="bi bi-broadcast text-primary me-2"></i>Monitor en Tiempo Real</h6>
+                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 rounded-pill" id="live-indicator" style="opacity: 0.3;">
+                        <i class="bi bi-record-fill me-1 blink"></i> Sincronizando
+                    </span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr class="small text-muted text-uppercase">
+                                <th class="ps-4">Hora / Fecha</th>
+                                <th>Docente</th>
+                                <th>Evento</th>
+                                <th class="text-center">Vía</th>
+                            </tr>
+                        </thead>
+                        <tbody id="live-logs-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- GESTIÓN DE DOCENTES CON FILTRO MEJORADO -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0 fw-bold"><i class="bi bi-people-fill me-2 text-primary"></i>Personal</h6>
+                        <span class="badge bg-light text-primary border rounded-pill fw-bold" id="badge-contador-docentes">{{ docentes|length }}</span>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="busDocente" class="form-control bg-light border-0 shadow-none" placeholder="Nombre o ID del docente...">
+                    </div>
+                </div>
+                
+                <!-- Contenedor del Listado -->
+                <div class="list-group list-group-flush rounded-bottom-4 overflow-hidden" id="listaDocentes">
+                    {% for d in docentes %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center py-3 docente-row">
+                        <div class="docente-info">
+                            <div class="fw-bold small text-dark name-field">{{ d.nombre }}</div>
+                            <code class="text-muted extra-small id-field">ID BIO: {{ d.biometric_id }}</code>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="form-check form-switch me-2" title="Permiso de Puerta">
+                                <input class="form-check-input" type="checkbox" onchange="togglePermiso('{{d.id}}', this)" {% if d.acceso_puerta == 1 %}checked{% endif %}>
+                            </div>
+                            <div class="btn-group">
+                                <a href="{{ url_for('editar_docente', id=d.id) }}" class="btn btn-sm btn-light border" title="Editar"><i class="bi bi-pencil text-primary"></i></a>
+                                <a href="{{ url_for('eliminar_docente', id=d.id) }}" class="btn btn-sm btn-light border text-danger" onclick="return confirm('¿Seguro de eliminar este docente?')"><i class="bi bi-trash"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Mensaje sin resultados -->
+                    <div id="no-results" class="p-5 text-center d-none">
+                        <i class="bi bi-person-x fs-2 text-muted mb-2 d-block"></i>
+                        <span class="text-muted small fw-bold">No se encontraron docentes.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /**
+     * Sincronización de Monitor y KPIs
+     */
+    async function actualizarMonitor() {
+        const body = document.getElementById('live-logs-body');
+        const ind = document.getElementById('live-indicator');
+        const hoyDisplay = document.getElementById('count-hoy');
+        const queueDisplay = document.getElementById('command-queue-count');
+        
+        try {
+            ind.style.opacity = '1';
+            const res = await fetch('/api/logs_admin'); // Usar endpoint de admin para más datos
+            const data = await res.json();
+            
+            const hoy = new Date().toISOString().split('T')[0];
+            const logsHoy = data.logs.filter(l => l.fecha.includes(hoy)).length;
+            hoyDisplay.innerText = logsHoy;
+            queueDisplay.innerText = data.queue_length;
+
+            body.innerHTML = data.logs.map(l => {
+                const [f, h] = l.fecha.split(' ');
+                const icon = l.origen === "Huella" ? "bi-cpu text-info" : "bi-laptop text-primary";
+                let badge = "bg-primary";
+                if(l.tipo_evento.toLowerCase().includes("puerta")) badge = "bg-success";
+                if(l.tipo_evento.toLowerCase().includes("remota")) badge = "bg-danger";
+
+                return `<tr>
+                    <td class="ps-4 mono small"><b>${h}</b><br><span class="text-muted extra-small">${f}</span></td>
+                    <td class="small fw-bold text-dark">${l.nombre}</td>
+                    <td><span class="badge ${badge} bg-opacity-10 text-dark border-0 px-3 extra-small fw-bold shadow-sm">${l.tipo_evento}</span></td>
+                    <td class="text-center"><i class="bi ${icon} fs-5" title="${l.origen}"></i></td>
+                </tr>`;
+            }).join('');
+        } catch (e) {
+            console.error("Monitor Error:", e);
+        } finally {
+            setTimeout(() => ind.style.opacity = '0.3', 800);
+        }
+    }
+
+    /**
+     * Filtro de Búsqueda Mejorado
+     */
+    const inputBusqueda = document.getElementById('busDocente');
+    const noResults = document.getElementById('no-results');
+    const badgeContador = document.getElementById('badge-contador-docentes');
+
+    inputBusqueda.addEventListener('keyup', function() {
+        const query = this.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.docente-row');
+        let countVisible = 0;
+
+        rows.forEach(row => {
+            const nombre = row.querySelector('.name-field').innerText.toLowerCase();
+            const idBio = row.querySelector('.id-field').innerText.toLowerCase();
+            
+            if (nombre.includes(query) || idBio.includes(query)) {
+                row.style.setProperty('display', 'flex', 'important');
+                countVisible++;
+            } else {
+                row.style.setProperty('display', 'none', 'important');
+            }
+        });
+
+        // Actualizar contador y estado vacío
+        badgeContador.innerText = countVisible;
+        if (countVisible === 0) {
+            noResults.classList.remove('d-none');
+        } else {
+            noResults.classList.add('d-none');
+        }
+    });
+
+    /**
+     * Actualización rápida de permisos
+     */
+    async function togglePermiso(id, cb) {
+        try {
+            await fetch(`/toggle_permiso/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({estado: cb.checked})
+            });
+        } catch(e) {
+            cb.checked = !cb.checked;
+        }
+    }
+
+    /**
+     * Helper para Sincronización de Hora
+     */
+    function setCurrentTime() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('datetime-sync').value = now.toISOString().slice(0,16);
+    }
+
+    setInterval(actualizarMonitor, 3500);
+    actualizarMonitor();
+</script>
+
+<style>
+    .blink { animation: blinker 1.5s linear infinite; }
+    @keyframes blinker { 50% { opacity: 0; } }
+    .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; letter-spacing: 0.5px; }
+    .extra-small { font-size: 0.7rem; }
+    .docente-row { transition: all 0.2s ease; border-left: 3px solid transparent; }
+    .docente-row:hover { background: #f8fafc !important; border-left: 3px solid #0d6efd; }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+{% endblock %}
