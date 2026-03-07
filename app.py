@@ -137,8 +137,7 @@ def index():
 def admin_dashboard():
     if current_user.rol != 'admin': return redirect(url_for('docente_dashboard'))
     docentes = User.query.filter_by(rol='docente').all()
-    permisos = db.session.query(Permiso).join(User).order_by(Permiso.fecha_permiso.desc()).all()
-    return render_template('admin.html', docentes=docentes, permisos=permisos)
+    return render_template('admin.html', docentes=docentes)
 
 @app.route('/docente/dashboard')
 @login_required
@@ -244,6 +243,131 @@ def docente_marcar():
     # Si es GET, simplemente renderiza la misma página (la lógica del modal se encarga)
     return redirect(url_for('docente_dashboard'))
 
+# --- GESTIÓN DE ASISTENCIAS Y PERMISOS ---
+
+@app.route('/admin/gestion_asistencia', methods=['GET'])
+@login_required
+def gestion_asistencia():
+    if current_user.rol != 'admin':
+        return redirect(url_for('index'))
+
+    fecha_ini_str = request.args.get('fecha_inicio')
+    fecha_fin_str = request.args.get('fecha_fin')
+    docente_id_filtro = request.args.get('docente_id')
+
+    query = db.session.query(Log, User).outerjoin(User, Log.usuario_id == User.biometric_id).order_by(Log.fecha.desc())
+
+    if fecha_ini_str:
+        start_dt = datetime.strptime(fecha_ini_str, '%Y-%m-%d')
+        query = query.filter(Log.fecha >= start_dt)
+    if fecha_fin_str:
+        end_dt = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
+        query = query.filter(Log.fecha <= end_dt + timedelta(days=1))
+    if docente_id_filtro and docente_id_filtro != 'todos':
+        # Assuming docente_id in filter is the User ID
+        user_filter = db.session.get(User, docente_id_filtro)
+        if user_filter:
+            query = query.filter(Log.usuario_id == user_filter.biometric_id)
+
+    logs_data = query.all()
+    docentes = User.query.filter_by(rol='docente').all()
+
+    return render_template('gestion_asistencia.html', 
+                           logs_data=logs_data, 
+                           docentes=docentes,
+                           filtros=request.args
+                           )
+
+@app.route('/admin/asistencia/editar/<int:id>', methods=['GET'])
+@login_required
+def editar_asistencia(id):
+    if current_user.rol != 'admin': return redirect(url_for('index'))
+    
+    log = db.session.get(Log, id)
+    if not log:
+        flash('El registro de asistencia no existe.', 'danger')
+        return redirect(url_for('gestion_asistencia'))
+
+    docentes = User.query.filter_by(rol='docente').all()
+    log_user = User.query.filter_by(biometric_id=log.usuario_id).first()
+
+    return render_template('editar_asistencia.html', log=log, docentes=docentes, log_user=log_user)
+
+@app.route('/admin/asistencia/actualizar', methods=['POST'])
+@login_required
+def actualizar_asistencia():
+    if current_user.rol != 'admin': return redirect(url_for('index'))
+
+    log_id = request.form.get('log_id')
+    log = db.session.get(Log, log_id)
+
+    if not log:
+        flash('El registro no existe.', 'danger')
+        return redirect(url_for('gestion_asistencia'))
+
+    log.fecha = datetime.strptime(request.form['fecha'], '%Y-%m-%dT%H:%M')
+    user = db.session.get(User, request.form['docente_id'])
+    if user:
+        log.usuario_id = user.biometric_id
+        
+    log.tipo_evento = request.form['tipo_evento']
+    log.origen = request.form['origen']
+    log.descripcion = request.form['descripcion']
+    
+    db.session.commit()
+    flash('Registro de asistencia actualizado correctamente.', 'success')
+    return redirect(url_for('gestion_asistencia'))
+
+@app.route('/admin/asistencia/eliminar/<int:id>')
+@login_required
+def eliminar_asistencia(id):
+    if current_user.rol != 'admin': return redirect(url_for('index'))
+
+    log = db.session.get(Log, id)
+    if log:
+        if log.foto_path:
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], log.foto_path))
+            except OSError as e:
+                flash(f'Error al eliminar la foto de evidencia: {e}', 'warning')
+        
+        db.session.delete(log)
+        db.session.commit()
+        flash('Registro de asistencia eliminado.', 'success')
+    else:
+        flash('El registro no existe.', 'danger')
+    
+    return redirect(url_for('gestion_asistencia'))
+
+@app.route('/admin/gestion_permisos', methods=['GET'])
+@login_required
+def gestion_permisos():
+    if current_user.rol != 'admin':
+        return redirect(url_for('index'))
+
+    fecha_ini_str = request.args.get('fecha_inicio')
+    fecha_fin_str = request.args.get('fecha_fin')
+    docente_id_filtro = request.args.get('docente_id')
+
+    query = Permiso.query.join(User).order_by(Permiso.fecha_permiso.desc())
+
+    if fecha_ini_str:
+        start_dt = datetime.strptime(fecha_ini_str, '%Y-%m-%d').date()
+        query = query.filter(Permiso.fecha_permiso >= start_dt)
+    if fecha_fin_str:
+        end_dt = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        query = query.filter(Permiso.fecha_permiso <= end_dt)
+    if docente_id_filtro and docente_id_filtro != 'todos':
+        query = query.filter(Permiso.user_id == docente_id_filtro)
+
+    permisos = query.all()
+    docentes = User.query.filter_by(rol='docente').all()
+
+    return render_template('gestion_permisos.html', 
+                           permisos=permisos, 
+                           docentes=docentes,
+                           filtros=request.args
+                           )
 
 # --- GESTIÓN DOCENTES ---
 @app.route('/crear_docente', methods=['POST'])
@@ -326,7 +450,7 @@ def editar_permiso(id):
     permiso = db.session.get(Permiso, id)
     if not permiso:
         flash('El permiso no existe.', 'danger')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('gestion_permisos'))
 
     docentes = User.query.filter_by(rol='docente').all()
     return render_template('editar_permiso.html', permiso=permiso, docentes=docentes)
@@ -343,7 +467,7 @@ def actualizar_permiso():
 
     if not permiso:
         flash('El permiso no existe.', 'danger')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('gestion_permisos'))
 
     docente_id = request.form.get('docente_id')
     fecha_str = request.form.get('fecha_permiso')
@@ -359,7 +483,7 @@ def actualizar_permiso():
     
     db.session.commit()
     flash('Permiso actualizado correctamente.', 'success')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('gestion_permisos'))
 
 
 @app.route('/admin/permiso/eliminar/<int:id>')
@@ -376,7 +500,7 @@ def eliminar_permiso(id):
     else:
         flash('El permiso no existe.', 'danger')
     
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('gestion_permisos'))
 
 # --- REPORTES ---
 @app.route('/descargar_reporte_permisos')

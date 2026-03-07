@@ -5,13 +5,22 @@ Este proyecto es una solución completa para el control de acceso y la gestión 
 ## Características
 
 - **Autenticación de usuarios:** Roles separados para administradores y docentes.
-- **Panel de administración:** Permite la gestión completa de los usuarios docentes (crear, editar, eliminar).
-- **Gestión de Permisos de Docentes:** Los administradores pueden registrar, editar y eliminar permisos o ausencias justificadas para los docentes.
-- **Sincronización de Hora del Dispositivo:** Herramienta en el panel de admin para ajustar manualmente la fecha y hora del hardware biométrico.
-- **Panel de docente:** Permite a los docentes ver sus registros de acceso y abrir la puerta de forma remota.
-- **Monitorización en tiempo real:** Muestra los últimos eventos de acceso en el panel de administración.
-- **Informes en Excel:** Genera informes detallados en formato Excel para la asistencia (formato matricial) y los permisos registrados, con filtros por rango de fechas y docente.
-- **Apertura remota de la puerta:** Permite a los administradores y docentes autorizados abrir la puerta desde la interfaz web.
+- **Dashboard de Administración:** Panel central con KPIs (Indicadores Clave de Rendimiento) y un monitor de eventos en tiempo real.
+- **Gestión Modular:**
+    - **Gestión de Asistencia:** Página dedicada para buscar (por fecha y docente), filtrar, editar y eliminar cualquier registro de asistencia.
+    - **Gestión de Permisos:** Módulo especializado para buscar (por fecha y docente), registrar, editar y eliminar permisos de los docentes.
+    - **Gestión de Docentes:** Funcionalidad para crear, editar, eliminar y buscar docentes, incluyendo el control de permisos para la apertura de puertas.
+- **Asistencia Remota con Evidencia:** Los docentes pueden registrar su asistencia de forma remota. Esta función:
+    - Captura la **ubicación GPS** del dispositivo.
+    - Solicita una **evidencia fotográfica** tomada directamente desde la cámara del teléfono para mayor seguridad.
+    - Permite añadir una **descripción opcional**.
+- **Visor de Evidencias:** Un modal integrado muestra todos los detalles de la marcación remota: mapa de ubicación, foto y descripción.
+- **Informes en Excel:**
+    - **Reporte de Asistencia:** Genera un informe matricial con filtros por rango de fechas, docente, y rangos de hora personalizables para los turnos de mañana y tarde.
+    - **Reporte de Permisos:** Genera un informe detallado de los permisos registrados con filtros avanzados.
+- **Control de Hardware:**
+    - **Apertura Remota:** Permite a los administradores y docentes autorizados abrir la puerta desde la interfaz web.
+    - **Sincronización de Hora:** Herramienta para ajustar la fecha y hora del dispositivo biométrico.
 - **Integración de hardware:** Se integra con un dispositivo ESP8266 para el escaneo biométrico y el control de la puerta.
 - **Capacidad sin conexión:** El ESP8266 almacena los registros de acceso si el servidor no está disponible y los envía más tarde.
 
@@ -58,11 +67,11 @@ Este proyecto es una solución completa para el control de acceso y la gestión 
     - Copia el archivo `config.py.example` a `config.py`.
     - Edita `config.py` con tus credenciales de la base de datos y una clave secreta (`SECRET_KEY`).
 
-5.  **Ejecutar la aplicación:**
+5.  **Ejecutar la aplicación y crear tablas:**
     ```bash
     flask run
     ```
-    La aplicación estará disponible en `http://127.0.0.1:5000`.
+    La primera vez que se ejecuta, Flask-SQLAlchemy creará las tablas necesarias. Si las tablas ya existen y necesitas actualizarlas (por ejemplo, añadir las nuevas columnas de evidencia a la tabla `logs`), deberás hacerlo manualmente con SQL.
 
 6.  **Configurar el ESP8266:**
     - Abre el archivo `nodered4.ino` con el IDE de Arduino.
@@ -78,34 +87,24 @@ Este proyecto es una solución completa para el control de acceso y la gestión 
 ## Estructura de la Base de Datos
 
 - **User:** Almacena la información de los usuarios (administradores y docentes).
-  - `id`: Clave primaria.
-  - `biometric_id`: El ID del dispositivo biométrico (por ejemplo, "101").
-  - `nombre`: Nombre completo.
-  - `username`: Nombre de usuario para el login.
-  - `password`: Hash de la contraseña.
-  - `rol`: `'admin'` o `'docente'`. 
-  - `acceso_puerta`: `1` si el docente puede abrir la puerta, `0` si no.
 
 - **Log:** Almacena los registros de acceso.
   - `id`: Clave primaria.
   - `fecha`: Marca de tiempo del evento.
   - `usuario_id`: El ID biométrico del usuario.
   - `tipo_evento`: Por ejemplo, "Asistencia + puerta", "Apertura Remota".
-  - `origen`: Por ejemplo, "Huella", "Panel Control".
+  - `origen`: Por ejemplo, "Huella", "Asistencia remota".
+  - `latitud`: Coordenada de latitud (para asistencia remota).
+  - `longitud`: Coordenada de longitud (para asistencia remota).
+  - `descripcion`: Observación opcional (para asistencia remota).
+  - `foto_path`: Ruta del archivo de la foto de evidencia (para asistencia remota).
 
 - **Comando:** Almacena los comandos que debe ejecutar el ESP8266.
-  - `id`: Clave primaria.
-  - `instruccion`: El comando (ej. `ABRIR` o `SET_TIME|2023-10-27T10:30:00-05:00`).
-  - `estado`: `'PENDIENTE'` o `'ENVIADO'`.
-  
+
 - **Permiso:** Almacena los permisos o ausencias justificadas de los docentes.
-  - `id`: Clave primaria.
-  - `user_id`: Clave foránea al ID del docente.
-  - `fecha_permiso`: La fecha para la cual se concede el permiso.
-  - `observacion`: Una descripción o motivo del permiso.
 
 ## Configuración (`config.py`)
 
 - `SECRET_KEY`: Clave secreta para la gestión de sesiones.
 - `SQLALCHEMY_DATABASE_URI`: Cadena de conexión a la base de datos.
-- `TOKEN_NODE`: Token secreto para autenticar las peticiones del ESP8266. Debe ser el mismo que en el fichero `nodered4.ino`.
+- `TOKEN_NODE`: Token secreto para autenticar las peticiones del ESP8266.
